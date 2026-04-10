@@ -1,132 +1,39 @@
-import type { Metadata } from "next"
+"use client"
+
 import ForumHeader from "@/components/forum-header"
 import ForumFooter from "@/components/forum-footer"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Input } from "@/components/ui/input"
-import { Users, Search, Lock, Globe, UserPlus, Calendar, MessageSquare } from "lucide-react"
+import { Users, Search, Lock, Globe, UserPlus, MessageSquare } from "lucide-react"
 import Link from "next/link"
-
-export const metadata: Metadata = {
-  title: "Gruplar | HAAAL Forum",
-  description: "HAAAL Forum grupları keşfedin ve katılın",
-}
+import { useEffect, useMemo, useState } from "react"
+import { useSession } from "next-auth/react"
 
 export default function GroupsPage() {
-  // Örnek grup verileri
-  const featuredGroups = [
-    {
-      id: "1",
-      name: "Matematik Çalışma Grubu",
-      description: "Matematik derslerinde yardımlaşma ve soru çözme grubu",
-      memberCount: 156,
-      isPrivate: false,
-      lastActivity: "2 saat önce",
-      avatar: "/placeholder.svg?text=MAT",
-    },
-    {
-      id: "2",
-      name: "Fizik Laboratuvarı",
-      description: "Fizik deneyleri ve laboratuvar çalışmaları hakkında tartışma grubu",
-      memberCount: 89,
-      isPrivate: false,
-      lastActivity: "Dün",
-      avatar: "/placeholder.svg?text=FİZ",
-    },
-    {
-      id: "3",
-      name: "Edebiyat Kulübü",
-      description: "Kitap önerileri, şiir ve edebiyat tartışmaları",
-      memberCount: 212,
-      isPrivate: false,
-      lastActivity: "3 gün önce",
-      avatar: "/placeholder.svg?text=EDK",
-    },
-    {
-      id: "4",
-      name: "Öğretmenler Odası",
-      description: "Sadece öğretmenlere özel tartışma ve paylaşım grubu",
-      memberCount: 45,
-      isPrivate: true,
-      lastActivity: "5 saat önce",
-      avatar: "/placeholder.svg?text=ÖĞR",
-    },
-  ]
+  const { data: session } = useSession()
+  const [groups, setGroups] = useState<any[]>([])
+  const [search, setSearch] = useState("")
 
-  const myGroups = [
-    {
-      id: "1",
-      name: "Matematik Çalışma Grubu",
-      description: "Matematik derslerinde yardımlaşma ve soru çözme grubu",
-      memberCount: 156,
-      isPrivate: false,
-      lastActivity: "2 saat önce",
-      avatar: "/placeholder.svg?text=MAT",
-      unreadCount: 5,
-    },
-    {
-      id: "5",
-      name: "10-A Sınıf Grubu",
-      description: "10-A sınıfı öğrencileri ve öğretmenleri için grup",
-      memberCount: 32,
-      isPrivate: true,
-      lastActivity: "1 saat önce",
-      avatar: "/placeholder.svg?text=10A",
-      unreadCount: 12,
-    },
-    {
-      id: "6",
-      name: "Okul Gezisi Planlama",
-      description: "Yıl sonu okul gezisi planlama ve organizasyon grubu",
-      memberCount: 18,
-      isPrivate: true,
-      lastActivity: "Dün",
-      avatar: "/placeholder.svg?text=GEZ",
-      unreadCount: 0,
-    },
-  ]
+  useEffect(() => {
+    fetch("/api/groups")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d) => setGroups(Array.isArray(d) ? d : []))
+      .catch(() => setGroups([]))
+  }, [])
 
-  const suggestedGroups = [
-    {
-      id: "2",
-      name: "Fizik Laboratuvarı",
-      description: "Fizik deneyleri ve laboratuvar çalışmaları hakkında tartışma grubu",
-      memberCount: 89,
-      isPrivate: false,
-      lastActivity: "Dün",
-      avatar: "/placeholder.svg?text=FİZ",
-    },
-    {
-      id: "3",
-      name: "Edebiyat Kulübü",
-      description: "Kitap önerileri, şiir ve edebiyat tartışmaları",
-      memberCount: 212,
-      isPrivate: false,
-      lastActivity: "3 gün önce",
-      avatar: "/placeholder.svg?text=EDK",
-    },
-    {
-      id: "7",
-      name: "Bilim ve Teknoloji",
-      description: "Bilimsel gelişmeler ve teknoloji haberleri hakkında tartışmalar",
-      memberCount: 178,
-      isPrivate: false,
-      lastActivity: "4 saat önce",
-      avatar: "/placeholder.svg?text=BİL",
-    },
-    {
-      id: "8",
-      name: "Yabancı Dil Pratiği",
-      description: "İngilizce, Almanca ve diğer dillerde pratik yapma grubu",
-      memberCount: 124,
-      isPrivate: false,
-      lastActivity: "2 gün önce",
-      avatar: "/placeholder.svg?text=DIL",
-    },
-  ]
+  const filtered = useMemo(
+    () => groups.filter((g) => g.name.toLowerCase().includes(search.toLowerCase())),
+    [groups, search],
+  )
+  const myGroups = useMemo(
+    () => filtered.filter((g) => g.members?.some((m: any) => m.userId === session?.user?.id)),
+    [filtered, session?.user?.id],
+  )
+  const featuredGroups = useMemo(() => [...filtered].sort((a, b) => b.memberCount - a.memberCount).slice(0, 9), [filtered])
+  const suggestedGroups = useMemo(() => filtered.filter((g) => !myGroups.find((m) => m.id === g.id)), [filtered, myGroups])
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -149,7 +56,7 @@ export default function GroupsPage() {
 
         <div className="relative mb-6">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Grup ara..." className="pl-10" />
+          <Input placeholder="Grup ara..." className="pl-10" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
 
         <Tabs defaultValue="featured" className="mb-6">
@@ -199,16 +106,7 @@ export default function GroupsPage() {
 }
 
 interface GroupCardProps {
-  group: {
-    id: string
-    name: string
-    description: string
-    memberCount: number
-    isPrivate: boolean
-    lastActivity: string
-    avatar: string
-    unreadCount?: number
-  }
+  group: any
   isMember?: boolean
 }
 
@@ -218,19 +116,15 @@ function GroupCard({ group, isMember = false }: GroupCardProps) {
       <CardHeader className="pb-2">
         <div className="flex justify-between items-start">
           <div className="flex items-center gap-3">
-            <Avatar className="h-10 w-10 border">
-              <AvatarImage src={group.avatar || "/placeholder.svg"} alt={group.name} />
-              <AvatarFallback>{group.name.substring(0, 2).toUpperCase()}</AvatarFallback>
-            </Avatar>
             <div>
               <CardTitle className="text-lg flex items-center gap-2">
                 {group.name}
-                {group.isPrivate && <Lock className="h-4 w-4 text-muted-foreground" />}
+                {Boolean(group.isPrivate) && <Lock className="h-4 w-4 text-muted-foreground" />}
               </CardTitle>
               <CardDescription className="line-clamp-1">{group.description}</CardDescription>
             </div>
           </div>
-          {group.unreadCount && group.unreadCount > 0 ? (
+          {group.unreadCount > 0 ? (
             <Badge variant="secondary" className="ml-2 pulse">
               {group.unreadCount}
             </Badge>
@@ -243,10 +137,7 @@ function GroupCard({ group, isMember = false }: GroupCardProps) {
             <Users className="mr-1 h-4 w-4" />
             <span>{group.memberCount} üye</span>
           </div>
-          <div className="flex items-center">
-            <Calendar className="mr-1 h-4 w-4" />
-            <span>{group.lastActivity}</span>
-          </div>
+          <div className="flex items-center"><span>Aktif</span></div>
         </div>
       </CardContent>
       <CardFooter>

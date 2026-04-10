@@ -1,27 +1,18 @@
+"use client"
+
 import Link from "next/link"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import { useEffect, useState } from "react"
 
-export function RelatedThreads() {
-  const relatedThreads = [
-    {
-      id: "8",
-      title: "Okul Kapanışı - Hava Durumu Uyarısı",
-      category: "Duyurular",
-      replies: 8,
-    },
-    {
-      id: "9",
-      title: "Gelecek Hafta Başlayacak Yeni Kütüphane Saatleri",
-      category: "Duyurular",
-      replies: 3,
-    },
-    {
-      id: "10",
-      title: "Tarih Ödevi Format Sorusu",
-      category: "Akademik",
-      replies: 5,
-    },
-  ]
+export function RelatedThreads({ threadId, categoryId }: { threadId: string; categoryId?: string }) {
+  const [relatedThreads, setRelatedThreads] = useState<any[]>([])
+  useEffect(() => {
+    const query = categoryId ? `?category=${categoryId}&sort=popular&limit=5` : "?sort=popular&limit=5"
+    fetch(`/api/threads${query}`)
+      .then((r) => (r.ok ? r.json() : { items: [] }))
+      .then((d) => setRelatedThreads((d.items ?? []).filter((t: any) => t.id !== threadId).slice(0, 5)))
+      .catch(() => setRelatedThreads([]))
+  }, [threadId, categoryId])
 
   return (
     <Card>
@@ -35,8 +26,8 @@ export function RelatedThreads() {
               {thread.title}
             </Link>
             <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>{thread.category}</span>
-              <span>{thread.replies} cevap</span>
+              <span>{thread.category.name}</span>
+              <span>{thread.replyCount} cevap</span>
             </div>
           </div>
         ))}

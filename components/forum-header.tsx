@@ -57,9 +57,11 @@ import NotificationDropdown from "@/components/notification-dropdown"
 import MessagesDropdown from "@/components/messages-dropdown"
 import { useTheme } from "next-themes"
 import { toast } from "@/components/ui/use-toast"
+import { signOut, useSession } from "next-auth/react"
 
 export default function ForumHeader() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false) // Varsayılan olarak giriş yapılmamış durumda
+  const { data: session } = useSession()
+  const isLoggedIn = !!session?.user
   const [isScrolled, setIsScrolled] = useState(false)
   const pathname = usePathname()
   const { theme, setTheme } = useTheme()
@@ -76,16 +78,8 @@ export default function ForumHeader() {
     return () => window.removeEventListener("scroll", handleScroll)
   }, [])
 
-  const handleLogin = () => {
-    setIsLoggedIn(true)
-    toast({
-      title: "Giriş başarılı",
-      description: "HAAAL Forum'a hoş geldiniz!",
-    })
-  }
-
   const handleLogout = () => {
-    setIsLoggedIn(false)
+    signOut({ callbackUrl: "/" })
     toast({
       title: "Çıkış yapıldı",
       description: "Güvenli bir şekilde çıkış yaptınız.",
@@ -399,7 +393,7 @@ export default function ForumHeader() {
           ) : (
             <>
               <Link href="/login">
-                <Button variant="ghost" className="gradient-border transition-all duration-300" onClick={handleLogin}>
+                <Button variant="ghost" className="gradient-border transition-all duration-300">
                   Giriş yap
                 </Button>
               </Link>

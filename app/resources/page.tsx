@@ -1,4 +1,5 @@
-import type { Metadata } from "next"
+"use client"
+
 import ForumHeader from "@/components/forum-header"
 import ForumFooter from "@/components/forum-footer"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -24,214 +25,24 @@ import {
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-
-export const metadata: Metadata = {
-  title: "Kaynaklar | HAAAL Forum",
-  description: "HAAAL Forum eğitim kaynakları ve materyalleri",
-}
+import { useEffect, useMemo, useState } from "react"
 
 export default function ResourcesPage() {
-  // Örnek kaynak verileri
-  const featuredResources = [
-    {
-      id: "1",
-      title: "Matematik Sınav Hazırlık Kılavuzu",
-      description: "Lise matematik sınavlarına hazırlık için kapsamlı bir kılavuz",
-      type: "document",
-      fileType: "PDF",
-      fileSize: "2.4 MB",
-      downloadCount: 1245,
-      rating: 4.8,
-      author: {
-        name: "Ayşe Öğretmen",
-        avatar: "/placeholder.svg?text=AÖ",
-      },
-      createdAt: "2 hafta önce",
-      tags: ["matematik", "sınav", "hazırlık"],
-    },
-    {
-      id: "2",
-      title: "Fizik Formülleri Özet",
-      description: "Tüm lise fizik formüllerinin özeti ve açıklamaları",
-      type: "document",
-      fileType: "PDF",
-      fileSize: "1.8 MB",
-      downloadCount: 987,
-      rating: 4.5,
-      author: {
-        name: "Mehmet Demir",
-        avatar: "/placeholder.svg?text=MD",
-      },
-      createdAt: "1 ay önce",
-      tags: ["fizik", "formül", "özet"],
-    },
-    {
-      id: "3",
-      title: "Biyoloji Laboratuvar Deneyleri",
-      description: "Lise biyoloji dersi için laboratuvar deneyleri ve açıklamaları",
-      type: "document",
-      fileType: "PDF",
-      fileSize: "3.2 MB",
-      downloadCount: 756,
-      rating: 4.3,
-      author: {
-        name: "Zeynep Kaya",
-        avatar: "/placeholder.svg?text=ZK",
-      },
-      createdAt: "3 hafta önce",
-      tags: ["biyoloji", "laboratuvar", "deney"],
-    },
-    {
-      id: "4",
-      title: "Türk Edebiyatı Eser Özetleri",
-      description: "Lise müfredatındaki tüm Türk edebiyatı eserlerinin özetleri",
-      type: "document",
-      fileType: "PDF",
-      fileSize: "4.5 MB",
-      downloadCount: 1102,
-      rating: 4.7,
-      author: {
-        name: "Ali Yılmaz",
-        avatar: "/placeholder.svg?text=AY",
-      },
-      createdAt: "1 ay önce",
-      tags: ["edebiyat", "özet", "eser"],
-    },
-    {
-      id: "5",
-      title: "Kimya Deneyleri Video Serisi",
-      description: "Lise kimya müfredatındaki deneylerin video anlatımları",
-      type: "video",
-      fileType: "MP4",
-      fileSize: "250 MB",
-      downloadCount: 689,
-      rating: 4.9,
-      author: {
-        name: "Fatma Şahin",
-        avatar: "/placeholder.svg?text=FŞ",
-      },
-      createdAt: "2 ay önce",
-      tags: ["kimya", "deney", "video"],
-    },
-    {
-      id: "6",
-      title: "Tarih Kronolojisi Çalışma Kağıdı",
-      description: "Türk ve dünya tarihinin kronolojik özeti",
-      type: "spreadsheet",
-      fileType: "XLSX",
-      fileSize: "1.2 MB",
-      downloadCount: 845,
-      rating: 4.4,
-      author: {
-        name: "Ahmet Yıldız",
-        avatar: "/placeholder.svg?text=AY",
-      },
-      createdAt: "3 ay önce",
-      tags: ["tarih", "kronoloji", "çalışma"],
-    },
-  ]
+  const [resources, setResources] = useState<any[]>([])
+  const [query, setQuery] = useState("")
+  const [type, setType] = useState("all")
+  const [sort, setSort] = useState("recent")
 
-  const recentResources = [
-    {
-      id: "7",
-      title: "İngilizce Gramer Kılavuzu",
-      description: "Lise İngilizce derslerindeki tüm gramer konularının açıklamaları",
-      type: "document",
-      fileType: "PDF",
-      fileSize: "2.1 MB",
-      downloadCount: 345,
-      rating: 4.2,
-      author: {
-        name: "Elif Kara",
-        avatar: "/placeholder.svg?text=EK",
-      },
-      createdAt: "3 gün önce",
-      tags: ["ingilizce", "gramer", "kılavuz"],
-    },
-    {
-      id: "8",
-      title: "Geometri Problemleri ve Çözümleri",
-      description: "Zorlu geometri problemleri ve adım adım çözümleri",
-      type: "document",
-      fileType: "PDF",
-      fileSize: "3.5 MB",
-      downloadCount: 278,
-      rating: 4.6,
-      author: {
-        name: "Mustafa Aydın",
-        avatar: "/placeholder.svg?text=MA",
-      },
-      createdAt: "1 hafta önce",
-      tags: ["geometri", "problem", "çözüm"],
-    },
-    {
-      id: "9",
-      title: "Coğrafya Haritaları Koleksiyonu",
-      description: "Lise coğrafya dersi için yüksek çözünürlüklü haritalar",
-      type: "image",
-      fileType: "ZIP",
-      fileSize: "15 MB",
-      downloadCount: 412,
-      rating: 4.5,
-      author: {
-        name: "Seda Çelik",
-        avatar: "/placeholder.svg?text=SÇ",
-      },
-      createdAt: "5 gün önce",
-      tags: ["coğrafya", "harita", "görsel"],
-    },
-  ]
+  useEffect(() => {
+    fetch(`/api/resources?q=${encodeURIComponent(query)}&type=${type}&sort=${sort}`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d) => setResources(Array.isArray(d) ? d : []))
+      .catch(() => setResources([]))
+  }, [query, type, sort])
 
-  const popularResources = [
-    {
-      id: "1",
-      title: "Matematik Sınav Hazırlık Kılavuzu",
-      description: "Lise matematik sınavlarına hazırlık için kapsamlı bir kılavuz",
-      type: "document",
-      fileType: "PDF",
-      fileSize: "2.4 MB",
-      downloadCount: 1245,
-      rating: 4.8,
-      author: {
-        name: "Ayşe Öğretmen",
-        avatar: "/placeholder.svg?text=AÖ",
-      },
-      createdAt: "2 hafta önce",
-      tags: ["matematik", "sınav", "hazırlık"],
-    },
-    {
-      id: "4",
-      title: "Türk Edebiyatı Eser Özetleri",
-      description: "Lise müfredatındaki tüm Türk edebiyatı eserlerinin özetleri",
-      type: "document",
-      fileType: "PDF",
-      fileSize: "4.5 MB",
-      downloadCount: 1102,
-      rating: 4.7,
-      author: {
-        name: "Ali Yılmaz",
-        avatar: "/placeholder.svg?text=AY",
-      },
-      createdAt: "1 ay önce",
-      tags: ["edebiyat", "özet", "eser"],
-    },
-    {
-      id: "5",
-      title: "Kimya Deneyleri Video Serisi",
-      description: "Lise kimya müfredatındaki deneylerin video anlatımları",
-      type: "video",
-      fileType: "MP4",
-      fileSize: "250 MB",
-      downloadCount: 689,
-      rating: 4.9,
-      author: {
-        name: "Fatma Şahin",
-        avatar: "/placeholder.svg?text=FŞ",
-      },
-      createdAt: "2 ay önce",
-      tags: ["kimya", "deney", "video"],
-    },
-  ]
+  const featuredResources = useMemo(() => resources.slice(0, 6), [resources])
+  const recentResources = useMemo(() => [...resources].sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt)).slice(0, 6), [resources])
+  const popularResources = useMemo(() => [...resources].sort((a, b) => b.downloadCount - a.downloadCount).slice(0, 6), [resources])
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -253,19 +64,19 @@ export default function ResourcesPage() {
         <div className="flex flex-col md:flex-row gap-4 mb-6">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Kaynak ara..." className="pl-10" />
+            <Input placeholder="Kaynak ara..." className="pl-10" value={query} onChange={(e) => setQuery(e.target.value)} />
           </div>
           <div className="flex gap-2">
-            <Select defaultValue="all">
+            <Select value={type} onValueChange={setType}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Dosya Türü" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tüm Dosyalar</SelectItem>
-                <SelectItem value="document">Dokümanlar</SelectItem>
-                <SelectItem value="video">Videolar</SelectItem>
-                <SelectItem value="spreadsheet">Tablolar</SelectItem>
-                <SelectItem value="image">Görseller</SelectItem>
+                <SelectItem value="DOCUMENT">Dokümanlar</SelectItem>
+                <SelectItem value="VIDEO">Videolar</SelectItem>
+                <SelectItem value="SPREADSHEET">Tablolar</SelectItem>
+                <SelectItem value="IMAGE">Görseller</SelectItem>
               </SelectContent>
             </Select>
             <DropdownMenu>
@@ -275,10 +86,10 @@ export default function ResourcesPage() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem>En Yeni</DropdownMenuItem>
-                <DropdownMenuItem>En Popüler</DropdownMenuItem>
-                <DropdownMenuItem>En Çok İndirilen</DropdownMenuItem>
-                <DropdownMenuItem>En Yüksek Puanlı</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSort("recent")}>En Yeni</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSort("popular")}>En Popüler</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSort("popular")}>En Çok İndirilen</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSort("top-rated")}>En Yüksek Puanlı</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>

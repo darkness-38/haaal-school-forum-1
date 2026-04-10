@@ -1,0 +1,493 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum UserRole {
+  STUDENT
+  TEACHER
+  STAFF
+  ADMIN
+}
+
+enum AccountStatus {
+  ACTIVE
+  SUSPENDED
+  BANNED
+}
+
+enum ThreadStatus {
+  PUBLISHED
+  HIDDEN
+  DELETED
+}
+
+enum ReportTargetType {
+  THREAD
+  REPLY
+  RESOURCE
+  USER
+}
+
+enum ReportStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+  REJECTED
+}
+
+enum ModerationActionType {
+  WARN
+  SUSPEND_USER
+  UNSUSPEND_USER
+  HIDE_THREAD
+  RESTORE_THREAD
+  REMOVE_RESOURCE
+  APPROVE_RESOURCE
+  REJECT_RESOURCE
+  RESOLVE_REPORT
+}
+
+enum ResourceStatus {
+  DRAFT
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+  ARCHIVED
+}
+
+enum ResourceType {
+  DOCUMENT
+  VIDEO
+  SPREADSHEET
+  IMAGE
+  LINK
+}
+
+model User {
+  id             String    @id @default(cuid())
+  email          String?   @unique
+  studentNumber  String?   @unique // Öğrenci numarası
+  username       String    @unique
+  displayName    String
+  passwordHash   String
+  role           UserRole  @default(STUDENT)
+  status         AccountStatus @default(ACTIVE)
+  suspendedUntil DateTime?
+  suspensionReason String?
+  avatar         String?
+  bio            String?
+  points         Int       @default(0)
+  postCount      Int       @default(0)
+  isOnline       Boolean   @default(false)
+  lastSeen       DateTime  @default(now())
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  threads        Thread[]
+  replies        Reply[]
+  eventAttendees EventAttendee[]
+  groupMembers   GroupMember[]
+  badges         UserBadge[]
+  resources      Resource[] @relation("ResourceUploader")
+  reportsFiled   Report[] @relation("ReportReporter")
+  reportsHandled Report[] @relation("ReportAdmin")
+  moderationActions ModerationAction[]
+  notifications  Notification[]
+  followers      Follow[] @relation("FollowTarget")
+  following      Follow[] @relation("FollowSource")
+  pollVotes      PollVote[]
+  resourceReactions ResourceReaction[]
+  resourceDownloads ResourceDownload[]
+  resourceBookmarks ResourceBookmark[]
+
+  conversationParticipants ConversationParticipant[]
+  sentMessages             Message[]
+
+  @@map("users")
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String
+  icon        String   @default("MessageSquare")
+  color       String   @default("#6366f1")
+  threadCount Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  threads     Thread[]
+
+  @@map("categories")
+}
+
+model Thread {
+  id          String   @id @default(cuid())
+  title       String
+  content     String   @db.Text
+  authorId    String
+  categoryId  String
+  views       Int      @default(0)
+  replyCount  Int      @default(0)
+  isPinned    Boolean  @default(false)
+  isLocked    Boolean  @default(false)
+  status      ThreadStatus @default(PUBLISHED)
+  deletedAt   DateTime?
+  deletedById String?
+  tags        String[] @default([])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  author      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  category    Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  replies     Reply[]
+  polls       Poll[]
+
+  @@map("threads")
+}
+
+model Reply {
+  id        String   @id @default(cuid())
+  content   String   @db.Text
+  authorId  String
+  threadId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  thread    Thread   @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  @@map("replies")
+}
+
+model Event {
+  id            String   @id @default(cuid())
+  title         String
+  description   String   @db.Text
+  date          DateTime
+  location      String
+  attendeeCount Int      @default(0)
+  createdAt     DateTime @default(now())
+
+  attendees     EventAttendee[]
+
+  @@map("events")
+}
+
+model EventAttendee {
+  userId    String
+  eventId   String
+  createdAt DateTime @default(now())
+
+  user      User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event     Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@id([userId, eventId])
+  @@map("event_attendees")
+}
+
+model Group {
+  id          String   @id @default(cuid())
+  name        String
+  description String
+  icon        String?
+  memberCount Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  members     GroupMember[]
+  conversation Conversation?
+  resources   Resource[]
+
+  @@map("groups")
+}
+
+model GroupMember {
+  userId    String
+  groupId   String
+  createdAt DateTime @default(now())
+
+  user      User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group     Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@id([userId, groupId])
+  @@map("group_members")
+}
+
+model Resource {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  url         String?
+  fileUrl     String?
+  categoryId  String?
+  uploaderId  String
+  status      ResourceStatus @default(APPROVED)
+  type        ResourceType   @default(DOCUMENT)
+  fileType    String?
+  fileSizeBytes Int?
+  thumbnailUrl String?
+  downloadCount Int @default(0)
+  viewCount   Int @default(0)
+  approvedById String?
+  approvedAt  DateTime?
+  rejectionReason String?
+  groupId     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  uploader    User @relation("ResourceUploader", fields: [uploaderId], references: [id], onDelete: Cascade)
+  category    ResourceCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  group       Group? @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  tags        ResourceTagMap[]
+  reactions   ResourceReaction[]
+  downloads   ResourceDownload[]
+  bookmarks   ResourceBookmark[]
+
+  @@map("resources")
+}
+
+model ResourceCategory {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  createdAt   DateTime @default(now())
+
+  resources   Resource[]
+
+  @@map("resource_categories")
+}
+
+model ResourceTag {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+
+  resources ResourceTagMap[]
+
+  @@map("resource_tags")
+}
+
+model ResourceTagMap {
+  resourceId String
+  tagId      String
+
+  resource   Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  tag        ResourceTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([resourceId, tagId])
+  @@map("resource_tag_map")
+}
+
+model ResourceReaction {
+  resourceId String
+  userId     String
+  value      Int
+  createdAt  DateTime @default(now())
+
+  resource   Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  user       User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([resourceId, userId])
+  @@map("resource_reactions")
+}
+
+model ResourceDownload {
+  id         String   @id @default(cuid())
+  resourceId String
+  userId     String?
+  ipHash     String?
+  createdAt  DateTime @default(now())
+
+  resource   Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  user       User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("resource_downloads")
+}
+
+model ResourceBookmark {
+  resourceId String
+  userId     String
+  createdAt  DateTime @default(now())
+
+  resource   Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  user       User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([resourceId, userId])
+  @@map("resource_bookmarks")
+}
+
+model Badge {
+  id          String @id @default(cuid())
+  name        String
+  description String
+  icon        String
+
+  users       UserBadge[]
+
+  @@map("badges")
+}
+
+model UserBadge {
+  userId    String
+  badgeId   String
+  awardedAt DateTime @default(now())
+
+  user      User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badge     Badge @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+
+  @@id([userId, badgeId])
+  @@map("user_badges")
+}
+
+// --- Chat (DM + Group) ---
+
+enum ConversationType {
+  DIRECT
+  GROUP
+}
+
+model Conversation {
+  id        String           @id @default(cuid())
+  type      ConversationType @default(DIRECT)
+  groupId   String?          @unique
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  group        Group?                    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  participants ConversationParticipant[]
+  messages     Message[]
+
+  @@map("conversations")
+}
+
+model ConversationParticipant {
+  conversationId String
+  userId         String
+  createdAt      DateTime @default(now())
+  lastReadAt     DateTime?
+
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([conversationId, userId])
+  @@map("conversation_participants")
+}
+
+model Message {
+  id             String   @id @default(cuid())
+  conversationId String
+  senderId       String
+  content        String   @db.Text
+  createdAt      DateTime @default(now())
+
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@map("messages")
+}
+
+model Follow {
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+
+  follower    User @relation("FollowSource", fields: [followerId], references: [id], onDelete: Cascade)
+  following   User @relation("FollowTarget", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@id([followerId, followingId])
+  @@map("follows")
+}
+
+model Poll {
+  id        String   @id @default(cuid())
+  threadId  String
+  question  String
+  createdAt DateTime @default(now())
+
+  thread    Thread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  options   PollOption[]
+  votes     PollVote[]
+
+  @@map("polls")
+}
+
+model PollOption {
+  id        String   @id @default(cuid())
+  pollId    String
+  text      String
+  votes     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  poll      Poll @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  votesByUsers PollVote[]
+
+  @@map("poll_options")
+}
+
+model PollVote {
+  pollId     String
+  optionId   String
+  userId     String
+  createdAt  DateTime @default(now())
+
+  poll       Poll @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  option     PollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  user       User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([pollId, userId])
+  @@map("poll_votes")
+}
+
+model Notification {
+  id         String   @id @default(cuid())
+  userId     String
+  title      String
+  message    String
+  link       String?
+  read       Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  user       User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model Report {
+  id            String   @id @default(cuid())
+  reporterId    String
+  targetType    ReportTargetType
+  targetId      String
+  reasonCode    String?
+  reasonText    String
+  status        ReportStatus @default(OPEN)
+  assignedAdminId String?
+  resolutionNote String?
+  resolvedAt    DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  reporter      User @relation("ReportReporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  assignedAdmin User? @relation("ReportAdmin", fields: [assignedAdminId], references: [id], onDelete: SetNull)
+  @@map("reports")
+}
+
+model ModerationAction {
+  id         String   @id @default(cuid())
+  adminId    String
+  entityType String
+  entityId   String
+  action     ModerationActionType
+  meta       Json?
+  createdAt  DateTime @default(now())
+
+  admin      User @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@map("moderation_actions")
+}
+

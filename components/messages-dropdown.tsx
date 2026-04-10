@@ -15,26 +15,44 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import Link from "next/link"
+import { useEffect, useMemo, useState } from "react"
+import { formatDistanceToNow } from "date-fns"
+import { tr } from "date-fns/locale"
 
 export default function MessagesDropdown() {
-  const messages = [
-    {
-      id: "1",
-      sender: "Ali Yılmaz",
-      avatar: "/placeholder.svg?text=AY",
-      message: "Merhaba, bilim fuarı projesi hakkında konuşabilir miyiz?",
-      time: "10 dakika önce",
-      read: false,
-    },
-    {
-      id: "2",
-      sender: "Ayşe Öğretmen",
-      avatar: "/placeholder.svg?text=AÖ",
-      message: "Ödevinizi aldım, geri bildirimlerim olacak.",
-      time: "1 saat önce",
-      read: false,
-    },
-  ]
+  const [messages, setMessages] = useState<any[]>([])
+
+  useEffect(() => {
+    let mounted = true
+    fetch("/api/chat/conversations")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d) => {
+        if (!mounted) return
+        const rows = Array.isArray(d) ? d : []
+        setMessages(
+          rows.map((conv: any) => {
+            const last = conv.messages?.[0]
+            const other = conv.participants?.[0]?.user
+            return {
+              id: conv.id,
+              sender: other?.displayName ?? (conv.type === "GROUP" ? conv.group?.name ?? "Grup" : "Sohbet"),
+              avatar: other?.avatar ?? "/placeholder.svg",
+              message: last?.content ?? "Henüz mesaj yok",
+              createdAt: last?.createdAt ?? conv.updatedAt,
+              read: false,
+            }
+          }),
+        )
+      })
+      .catch(() => {
+        if (mounted) setMessages([])
+      })
+    return () => {
+      mounted = false
+    }
+  }, [])
+
+  const unreadCount = useMemo(() => messages.filter((m) => !m.read).length, [messages])
 
   return (
     <DropdownMenu>
@@ -45,7 +63,7 @@ export default function MessagesDropdown() {
               <Button variant="ghost" size="icon" className="relative">
                 <MessageSquare className="h-5 w-5" />
                 <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0">
-                  {messages.filter((m) => !m.read).length}
+                  {unreadCount}
                 </Badge>
                 <span className="sr-only">Mesajlar</span>
               </Button>
@@ -76,7 +94,7 @@ export default function MessagesDropdown() {
                         <AvatarFallback>
                           {message.sender
                             .split(" ")
-                            .map((n) => n[0])
+                            .map((n: string) => n[0])
                             .join("")
                             .toUpperCase()
                             .substring(0, 2)}
@@ -85,7 +103,9 @@ export default function MessagesDropdown() {
                       <div className="flex-1">
                         <div className="flex justify-between items-start">
                           <p className={`text-sm ${message.read ? "" : "font-medium"}`}>{message.sender}</p>
-                          <span className="text-xs text-muted-foreground ml-2">{message.time}</span>
+                          <span className="text-xs text-muted-foreground ml-2">
+                            {formatDistanceToNow(new Date(message.createdAt), { addSuffix: true, locale: tr })}
+                          </span>
                         </div>
                         <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{message.message}</p>
                       </div>

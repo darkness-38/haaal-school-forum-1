@@ -1,37 +1,53 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { BarChart3 } from "lucide-react"
 
-export function ThreadPoll() {
+export function ThreadPoll({ threadId }: { threadId: string }) {
   const [voted, setVoted] = useState(false)
-  const [selectedOption, setSelectedOption] = useState<number | null>(null)
+  const [selectedOption, setSelectedOption] = useState<string | null>(null)
+  const [poll, setPoll] = useState<any | null>(null)
 
-  const pollOptions = [
-    { id: 1, text: "Matematik sınavı için ek çalışma materyali istiyorum", votes: 15 },
-    { id: 2, text: "Sınav öncesi tekrar dersi yapılmasını istiyorum", votes: 28 },
-    { id: 3, text: "Mevcut materyaller yeterli, ek bir şeye ihtiyacım yok", votes: 7 },
-  ]
+  useEffect(() => {
+    fetch(`/api/threads/${threadId}/poll`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setPoll(d))
+      .catch(() => setPoll(null))
+  }, [threadId])
 
-  const totalVotes = pollOptions.reduce((sum, option) => sum + option.votes, 0)
+  const totalVotes = useMemo(
+    () => (poll?.options ?? []).reduce((sum: number, option: any) => sum + option.votes, 0),
+    [poll],
+  )
 
   const handleVote = () => {
     if (selectedOption !== null) {
-      setVoted(true)
+      fetch(`/api/threads/${threadId}/poll`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ voteOptionId: selectedOption }),
+      }).then(() => {
+        setVoted(true)
+        return fetch(`/api/threads/${threadId}/poll`)
+          .then((r) => (r.ok ? r.json() : null))
+          .then((d) => setPoll(d))
+      })
     }
   }
+
+  if (!poll) return null
 
   return (
     <div className="border rounded-md p-4 bg-muted/30">
       <div className="flex items-center gap-2 mb-3">
         <BarChart3 className="h-5 w-5 text-primary" />
-        <h4 className="font-medium">Anket: Sınav hazırlığı için ne istiyorsunuz?</h4>
+        <h4 className="font-medium">Anket: {poll.question}</h4>
       </div>
 
       <div className="space-y-3">
-        {pollOptions.map((option) => {
+        {poll.options.map((option: any) => {
           const percentage = totalVotes > 0 ? Math.round((option.votes / totalVotes) * 100) : 0
 
           return (

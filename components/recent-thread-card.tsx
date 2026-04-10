@@ -8,12 +8,15 @@ import { MessageSquare, Eye, Paperclip, ImageIcon, BarChart2, Pin } from "lucide
 interface RecentThreadCardProps {
   title: string
   author: string
+  authorUsername?: string
   authorRole: string
   category: string
+  categorySlug?: string
   replies: number
   views: number
   timestamp: string
   id: string
+  authorAvatar?: string | null
   isPinned?: boolean
   hasAttachments?: boolean
   hasImages?: boolean
@@ -24,24 +27,33 @@ interface RecentThreadCardProps {
 export default function RecentThreadCard({
   title,
   author,
+  authorUsername,
   authorRole,
   category,
+  categorySlug,
   replies,
   views,
   timestamp,
   id,
+  authorAvatar,
   isPinned = false,
   hasAttachments = false,
   hasImages = false,
   hasPolls = false,
   tags = [],
 }: RecentThreadCardProps) {
+  const profileHref = authorUsername
+    ? `/profile/${authorUsername}`
+    : `/profile/${author.toLowerCase().replace(" ", "-")}`
+
+  const categoryHref = categorySlug ? `/category/${categorySlug}` : `/category/${category.toLowerCase()}`
+
   return (
     <Card className="animated-card overflow-hidden group">
       <div className="p-4">
         <div className="flex items-start gap-4">
           <Avatar className="hidden sm:flex h-10 w-10 transition-transform duration-300 group-hover:scale-110">
-            <AvatarImage src={`/placeholder.svg?text=${author.substring(0, 2)}`} alt={author} />
+            <AvatarImage src={authorAvatar ?? `/placeholder.svg?text=${author.substring(0, 2)}`} alt={author} />
             <AvatarFallback>{author.substring(0, 2)}</AvatarFallback>
           </Avatar>
           <div className="flex-1 space-y-1">
@@ -69,7 +81,7 @@ export default function RecentThreadCard({
                 </div>
                 <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                   <Link
-                    href={`/profile/${author.toLowerCase().replace(" ", "-")}`}
+                    href={profileHref}
                     className="hover:text-primary transition-colors duration-300"
                   >
                     {author}
@@ -78,7 +90,7 @@ export default function RecentThreadCard({
                   <span>{authorRole}</span>
                   <span className="text-muted-foreground/60">•</span>
                   <Link
-                    href={`/category/${category.toLowerCase()}`}
+                    href={categoryHref}
                     className="hover:text-primary transition-colors duration-300"
                   >
                     {category}

@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { BookOpen, MessageCircle, TrendingUp, Users, Bell, Calendar, Award } from "lucide-react"
+import { BookOpen, MessageCircle, Users, Bell, Calendar, Award, FileText, HelpCircle, TrendingUp } from "lucide-react"
 import ForumHeader from "@/components/forum-header"
 import ForumFooter from "@/components/forum-footer"
 import RecentThreadCard from "@/components/recent-thread-card"
@@ -12,8 +12,106 @@ import AnnouncementBanner from "@/components/announcement-banner"
 import EventCard from "@/components/event-card"
 import UserRankingCard from "@/components/user-ranking-card"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { prisma } from "@/lib/prisma"
+import { formatDistanceToNow } from "date-fns"
+import { tr } from "date-fns/locale/tr"
 
-export default function Home() {
+function roleLabel(role: string) {
+  switch (role) {
+    case "ADMIN":
+      return "Admin"
+    case "TEACHER":
+      return "Öğretmen"
+    case "STAFF":
+      return "Personel"
+    default:
+      return "Öğrenci"
+  }
+}
+
+function relativeTime(date: Date) {
+  return formatDistanceToNow(date, { addSuffix: true, locale: tr })
+}
+
+const categoryIconBySlug: Record<string, any> = {
+  duyurular: Bell,
+  akademik: BookOpen,
+  kulupler: Users,
+  etkinlikler: Calendar,
+  genel: MessageCircle,
+  kaynaklar: FileText,
+  "soru-cevap": HelpCircle,
+}
+
+export default async function Home() {
+  const now = new Date()
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+
+  const [recentThreads, popularThreads, unansweredThreads, categories, events, stats, topUsers, trendingThreads, onlineUsers] =
+    await Promise.all([
+      prisma.thread.findMany({
+        take: 10,
+        orderBy: [{ isPinned: "desc" }, { createdAt: "desc" }],
+        include: { author: true, category: true, _count: { select: { replies: true } } },
+      }),
+      prisma.thread.findMany({
+        take: 10,
+        orderBy: [{ isPinned: "desc" }, { views: "desc" }, { createdAt: "desc" }],
+        include: { author: true, category: true, _count: { select: { replies: true } } },
+      }),
+      prisma.thread.findMany({
+        take: 10,
+        where: { replyCount: 0 },
+        orderBy: [{ createdAt: "desc" }],
+        include: { author: true, category: true, _count: { select: { replies: true } } },
+      }),
+      prisma.category.findMany({ orderBy: { threadCount: "desc" }, take: 7 }),
+      prisma.event.findMany({
+        where: { date: { gte: new Date() } },
+        take: 4,
+        orderBy: { date: "asc" },
+      }),
+      (async () => {
+        const [totalThreads, totalReplies, totalUsers, onlineUsersCount, todayThreads, todayReplies, newestMember] =
+          await Promise.all([
+            prisma.thread.count(),
+            prisma.reply.count(),
+            prisma.user.count(),
+            prisma.user.count({ where: { isOnline: true } }),
+            prisma.thread.count({ where: { createdAt: { gte: startOfDay } } }),
+            prisma.reply.count({ where: { createdAt: { gte: startOfDay } } }),
+            prisma.user.findFirst({
+              orderBy: { createdAt: "desc" },
+              select: { displayName: true, username: true },
+            }),
+          ])
+        return {
+          totalThreads,
+          totalReplies,
+          totalUsers,
+          onlineUsers: onlineUsersCount,
+          todayPosts: todayThreads + todayReplies,
+          newestMember,
+        }
+      })(),
+      prisma.user.findMany({
+        take: 3,
+        orderBy: { points: "desc" },
+        select: { displayName: true, role: true, points: true, avatar: true, username: true },
+      }),
+      prisma.thread.findMany({
+        take: 5,
+        orderBy: [{ views: "desc" }, { createdAt: "desc" }],
+        include: { category: true },
+      }),
+      prisma.user.findMany({
+        take: 6,
+        where: { isOnline: true },
+        orderBy: { lastSeen: "desc" },
+        select: { displayName: true, username: true },
+      }),
+    ])
+
   return (
     <div className="min-h-screen flex flex-col animated-bg">
       <ForumHeader />
@@ -66,87 +164,19 @@ export default function Home() {
                     <CardTitle className="text-lg">Kategoriler</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-2">
-                    <Link
-                      href="/category/announcements"
-                      className="flex items-center gap-2 p-2 rounded-md hover:bg-muted transition-all duration-300 hover:translate-x-1"
-                    >
-                      <Bell className="h-4 w-4" />
-                      <span>Duyurular</span>
-                    </Link>
-                    <Link
-                      href="/category/academics"
-                      className="flex items-center gap-2 p-2 rounded-md hover:bg-muted transition-all duration-300 hover:translate-x-1"
-                    >
-                      <BookOpen className="h-4 w-4" />
-                      <span>Akademik</span>
-                    </Link>
-                    <Link
-                      href="/category/clubs"
-                      className="flex items-center gap-2 p-2 rounded-md hover:bg-muted transition-all duration-300 hover:translate-x-1"
-                    >
-                      <Users className="h-4 w-4" />
-                      <span>Kulüpler & Aktiviteler</span>
-                    </Link>
-                    <Link
-                      href="/category/events"
-                      className="flex items-center gap-2 p-2 rounded-md hover:bg-muted transition-all duration-300 hover:translate-x-1"
-                    >
-                      <Calendar className="h-4 w-4" />
-                      <span>Etkinlikler</span>
-                    </Link>
-                    <Link
-                      href="/category/general"
-                      className="flex items-center gap-2 p-2 rounded-md hover:bg-muted transition-all duration-300 hover:translate-x-1"
-                    >
-                      <MessageCircle className="h-4 w-4" />
-                      <span>Genel Tartışma</span>
-                    </Link>
-                    <Link
-                      href="/category/resources"
-                      className="flex items-center gap-2 p-2 rounded-md hover:bg-muted transition-all duration-300 hover:translate-x-1"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="lucide lucide-file-text"
-                      >
-                        <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
-                        <polyline points="14 2 14 8 20 8" />
-                        <line x1="16" x2="8" y1="13" y2="13" />
-                        <line x1="16" x2="8" y1="17" y2="17" />
-                        <line x1="10" x2="8" y1="9" y2="9" />
-                      </svg>
-                      <span>Kaynaklar</span>
-                    </Link>
-                    <Link
-                      href="/category/questions"
-                      className="flex items-center gap-2 p-2 rounded-md hover:bg-muted transition-all duration-300 hover:translate-x-1"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="lucide lucide-help-circle"
-                      >
-                        <circle cx="12" cy="12" r="10" />
-                        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
-                        <path d="M12 17h.01" />
-                      </svg>
-                      <span>Soru & Cevap</span>
-                    </Link>
+                    {categories.map((cat) => {
+                      const Icon = categoryIconBySlug[cat.slug] ?? MessageCircle
+                      return (
+                        <Link
+                          key={cat.id}
+                          href={`/category/${cat.slug}`}
+                          className="flex items-center gap-2 p-2 rounded-md hover:bg-muted transition-all duration-300 hover:translate-x-1"
+                        >
+                          <Icon className="h-4 w-4" />
+                          <span>{cat.name}</span>
+                        </Link>
+                      )
+                    })}
                   </CardContent>
                   <CardFooter>
                     <Link
@@ -166,7 +196,14 @@ export default function Home() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <TrendingTopics />
+                    <TrendingTopics
+                      topics={trendingThreads.map((t) => ({
+                        id: t.id,
+                        title: t.title,
+                        category: t.category.name,
+                        count: t.views,
+                      }))}
+                    />
                   </CardContent>
                 </Card>
 
@@ -178,27 +215,16 @@ export default function Home() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <UserRankingCard
-                      name="Ayşe Öğretmen"
-                      role="Öğretmen"
-                      points={1250}
-                      rank={1}
-                      avatar="/placeholder.svg?text=AÖ"
-                    />
-                    <UserRankingCard
-                      name="Ali Yılmaz"
-                      role="Öğrenci"
-                      points={980}
-                      rank={2}
-                      avatar="/placeholder.svg?text=AY"
-                    />
-                    <UserRankingCard
-                      name="Zeynep Kaya"
-                      role="Öğrenci"
-                      points={845}
-                      rank={3}
-                      avatar="/placeholder.svg?text=ZK"
-                    />
+                    {topUsers.map((u, idx) => (
+                      <UserRankingCard
+                        key={u.username}
+                        name={u.displayName}
+                        role={roleLabel(u.role)}
+                        points={u.points}
+                        rank={idx + 1}
+                        avatar={u.avatar ?? `/placeholder.svg?text=${u.displayName.substring(0, 2)}`}
+                      />
+                    ))}
                   </CardContent>
                   <CardFooter>
                     <Link
@@ -220,156 +246,84 @@ export default function Home() {
                     <TabsTrigger value="following">Takip Ettiklerim</TabsTrigger>
                   </TabsList>
                   <TabsContent value="recent" className="space-y-4">
-                    <RecentThreadCard
-                      title="Final Sınav Programı Yayınlandı"
-                      author="Ayşe Öğretmen"
-                      authorRole="Öğretmen"
-                      category="Duyurular"
-                      replies={12}
-                      views={145}
-                      timestamp="2 saat önce"
-                      id="1"
-                      isPinned={true}
-                      hasAttachments={true}
-                      tags={["önemli", "sınavlar"]}
-                    />
-                    <RecentThreadCard
-                      title="Basketbol Takımı Seçmeleri Gelecek Hafta"
-                      author="Ahmet Koç"
-                      authorRole="Personel"
-                      category="Spor"
-                      replies={8}
-                      views={97}
-                      timestamp="5 saat önce"
-                      id="2"
-                      hasPolls={true}
-                      tags={["spor", "basketbol"]}
-                    />
-                    <RecentThreadCard
-                      title="Bilim Fuarı Proje Fikirleri"
-                      author="Ali Yılmaz"
-                      authorRole="Öğrenci"
-                      category="Akademik"
-                      replies={23}
-                      views={210}
-                      timestamp="1 gün önce"
-                      id="3"
-                      hasImages={true}
-                      tags={["bilim", "projeler"]}
-                    />
-                    <RecentThreadCard
-                      title="Gönüllü Saatleri Fırsatı"
-                      author="Öğrenci Konseyi"
-                      authorRole="Kulüp"
-                      category="Etkinlikler"
-                      replies={5}
-                      views={78}
-                      timestamp="2 gün önce"
-                      id="4"
-                      tags={["gönüllülük", "sosyal sorumluluk"]}
-                    />
-                    <RecentThreadCard
-                      title="Yemekhane Menü Önerileri"
-                      author="Zeynep Kaya"
-                      authorRole="Öğrenci"
-                      category="Genel"
-                      replies={31}
-                      views={256}
-                      timestamp="3 gün önce"
-                      id="5"
-                      hasPolls={true}
-                      tags={["yemekhane", "öneri"]}
-                    />
+                    {recentThreads.map((t) => (
+                      <RecentThreadCard
+                        key={t.id}
+                        title={t.title}
+                        author={t.author.displayName}
+                        authorUsername={t.author.username}
+                        authorRole={roleLabel(t.author.role)}
+                        category={t.category.name}
+                        categorySlug={t.category.slug}
+                        replies={t._count.replies}
+                        views={t.views}
+                        timestamp={relativeTime(t.createdAt)}
+                        id={t.id}
+                        isPinned={t.isPinned}
+                        tags={t.tags}
+                        authorAvatar={t.author.avatar}
+                      />
+                    ))}
                   </TabsContent>
                   <TabsContent value="popular" className="space-y-4">
-                    <RecentThreadCard
-                      title="Yemekhane Menü Önerileri"
-                      author="Zeynep Kaya"
-                      authorRole="Öğrenci"
-                      category="Genel"
-                      replies={31}
-                      views={256}
-                      timestamp="3 gün önce"
-                      id="5"
-                      hasPolls={true}
-                      tags={["yemekhane", "öneri"]}
-                    />
-                    <RecentThreadCard
-                      title="Bilim Fuarı Proje Fikirleri"
-                      author="Ali Yılmaz"
-                      authorRole="Öğrenci"
-                      category="Akademik"
-                      replies={23}
-                      views={210}
-                      timestamp="1 gün önce"
-                      id="3"
-                      hasImages={true}
-                      tags={["bilim", "projeler"]}
-                    />
-                    <RecentThreadCard
-                      title="Final Sınav Programı Yayınlandı"
-                      author="Ayşe Öğretmen"
-                      authorRole="Öğretmen"
-                      category="Duyurular"
-                      replies={12}
-                      views={145}
-                      timestamp="2 saat önce"
-                      id="1"
-                      isPinned={true}
-                      hasAttachments={true}
-                      tags={["önemli", "sınavlar"]}
-                    />
+                    {popularThreads.map((t) => (
+                      <RecentThreadCard
+                        key={t.id}
+                        title={t.title}
+                        author={t.author.displayName}
+                        authorUsername={t.author.username}
+                        authorRole={roleLabel(t.author.role)}
+                        category={t.category.name}
+                        categorySlug={t.category.slug}
+                        replies={t._count.replies}
+                        views={t.views}
+                        timestamp={relativeTime(t.createdAt)}
+                        id={t.id}
+                        isPinned={t.isPinned}
+                        tags={t.tags}
+                        authorAvatar={t.author.avatar}
+                      />
+                    ))}
                   </TabsContent>
                   <TabsContent value="unanswered" className="space-y-4">
-                    <RecentThreadCard
-                      title="Çalışma Grubu Arıyorum - Kalkülüs"
-                      author="Taner Yıldız"
-                      authorRole="Öğrenci"
-                      category="Akademik"
-                      replies={0}
-                      views={12}
-                      timestamp="1 saat önce"
-                      id="6"
-                      tags={["matematik", "çalışma grubu"]}
-                    />
-                    <RecentThreadCard
-                      title="Spor Salonunda Kayıp Su Şişesi"
-                      author="Ceren Demir"
-                      authorRole="Öğrenci"
-                      category="Genel"
-                      replies={0}
-                      views={8}
-                      timestamp="3 saat önce"
-                      id="7"
-                      tags={["kayıp eşya"]}
-                    />
+                    {unansweredThreads.map((t) => (
+                      <RecentThreadCard
+                        key={t.id}
+                        title={t.title}
+                        author={t.author.displayName}
+                        authorUsername={t.author.username}
+                        authorRole={roleLabel(t.author.role)}
+                        category={t.category.name}
+                        categorySlug={t.category.slug}
+                        replies={t._count.replies}
+                        views={t.views}
+                        timestamp={relativeTime(t.createdAt)}
+                        id={t.id}
+                        isPinned={t.isPinned}
+                        tags={t.tags}
+                        authorAvatar={t.author.avatar}
+                      />
+                    ))}
                   </TabsContent>
                   <TabsContent value="following" className="space-y-4">
-                    <RecentThreadCard
-                      title="Final Sınav Programı Yayınlandı"
-                      author="Ayşe Öğretmen"
-                      authorRole="Öğretmen"
-                      category="Duyurular"
-                      replies={12}
-                      views={145}
-                      timestamp="2 saat önce"
-                      id="1"
-                      isPinned={true}
-                      hasAttachments={true}
-                      tags={["önemli", "sınavlar"]}
-                    />
-                    <RecentThreadCard
-                      title="Bilim Fuarı Proje Fikirleri"
-                      author="Ali Yılmaz"
-                      authorRole="Öğrenci"
-                      category="Akademik"
-                      replies={23}
-                      views={210}
-                      timestamp="1 gün önce"
-                      id="3"
-                      hasImages={true}
-                      tags={["bilim", "projeler"]}
-                    />
+                    {recentThreads.slice(0, 5).map((t) => (
+                      <RecentThreadCard
+                        key={t.id}
+                        title={t.title}
+                        author={t.author.displayName}
+                        authorUsername={t.author.username}
+                        authorRole={roleLabel(t.author.role)}
+                        category={t.category.name}
+                        categorySlug={t.category.slug}
+                        replies={t._count.replies}
+                        views={t.views}
+                        timestamp={relativeTime(t.createdAt)}
+                        id={t.id}
+                        isPinned={t.isPinned}
+                        tags={t.tags}
+                        authorAvatar={t.author.avatar}
+                      />
+                    ))}
                   </TabsContent>
                 </Tabs>
 
@@ -391,38 +345,17 @@ export default function Home() {
                   <CardContent className="p-0">
                     <ScrollArea className="h-[300px]">
                       <div className="p-4 space-y-4">
-                        <EventCard
-                          title="Bahar Konseri"
-                          date="25 Mayıs 2025"
-                          time="19:00"
-                          location="Okul Konferans Salonu"
-                          attendees={42}
-                          id="event-1"
-                        />
-                        <EventCard
-                          title="Final Sınavları Başlangıcı"
-                          date="10 Haziran 2025"
-                          time="08:30"
-                          location="Tüm Sınıflar"
-                          attendees={523}
-                          id="event-2"
-                        />
-                        <EventCard
-                          title="Mezuniyet Töreni"
-                          date="18 Haziran 2025"
-                          time="13:00"
-                          location="Okul Bahçesi"
-                          attendees={156}
-                          id="event-3"
-                        />
-                        <EventCard
-                          title="Yaz Okulu Kayıtları"
-                          date="20 Haziran 2025"
-                          time="09:00"
-                          location="Çevrimiçi"
-                          attendees={78}
-                          id="event-4"
-                        />
+                        {events.map((e) => (
+                          <EventCard
+                            key={e.id}
+                            title={e.title}
+                            date={e.date.toLocaleDateString("tr-TR", { day: "2-digit", month: "long", year: "numeric" })}
+                            time={e.date.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}
+                            location={e.location}
+                            attendees={e.attendeeCount}
+                            id={e.id}
+                          />
+                        ))}
                       </div>
                     </ScrollArea>
                   </CardContent>
@@ -445,23 +378,23 @@ export default function Home() {
                     <div className="space-y-2">
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Toplam Konular:</span>
-                        <span className="font-medium">1,245</span>
+                        <span className="font-medium">{stats.totalThreads}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Toplam Cevaplar:</span>
-                        <span className="font-medium">8,392</span>
+                        <span className="font-medium">{stats.totalReplies}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Aktif Kullanıcılar:</span>
-                        <span className="font-medium">523</span>
+                        <span className="font-medium">{stats.onlineUsers}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">En Yeni Üye:</span>
-                        <span className="font-medium">Ece Yılmaz</span>
+                        <span className="font-medium">{stats.newestMember?.displayName ?? "-"}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Bugünkü Mesajlar:</span>
-                        <span className="font-medium">47</span>
+                        <span className="font-medium">{stats.todayPosts}</span>
                       </div>
                     </div>
                   </CardContent>
@@ -474,34 +407,20 @@ export default function Home() {
                   </CardHeader>
                   <CardContent>
                     <div className="flex flex-wrap gap-2">
-                      <div className="flex items-center gap-2 bg-muted px-2 py-1 rounded-full text-sm transition-all duration-300 hover:bg-primary/10 hover:scale-105">
-                        <div className="w-2 h-2 rounded-full bg-green-500 pulse"></div>
-                        <span>Ayşe Öğretmen</span>
-                      </div>
-                      <div className="flex items-center gap-2 bg-muted px-2 py-1 rounded-full text-sm transition-all duration-300 hover:bg-primary/10 hover:scale-105">
-                        <div className="w-2 h-2 rounded-full bg-green-500 pulse"></div>
-                        <span>Ali Yılmaz</span>
-                      </div>
-                      <div className="flex items-center gap-2 bg-muted px-2 py-1 rounded-full text-sm transition-all duration-300 hover:bg-primary/10 hover:scale-105">
-                        <div className="w-2 h-2 rounded-full bg-green-500 pulse"></div>
-                        <span>Zeynep Kaya</span>
-                      </div>
-                      <div className="flex items-center gap-2 bg-muted px-2 py-1 rounded-full text-sm transition-all duration-300 hover:bg-primary/10 hover:scale-105">
-                        <div className="w-2 h-2 rounded-full bg-green-500 pulse"></div>
-                        <span>Taner Yıldız</span>
-                      </div>
-                      <div className="flex items-center gap-2 bg-muted px-2 py-1 rounded-full text-sm transition-all duration-300 hover:bg-primary/10 hover:scale-105">
-                        <div className="w-2 h-2 rounded-full bg-green-500 pulse"></div>
-                        <span>Ceren Demir</span>
-                      </div>
-                      <div className="flex items-center gap-2 bg-muted px-2 py-1 rounded-full text-sm transition-all duration-300 hover:bg-primary/10 hover:scale-105">
-                        <div className="w-2 h-2 rounded-full bg-green-500 pulse"></div>
-                        <span>+36 kişi</span>
-                      </div>
+                      {onlineUsers.map((u) => (
+                        <Link
+                          key={u.username}
+                          href={`/profile/${u.username}`}
+                          className="flex items-center gap-2 bg-muted px-2 py-1 rounded-full text-sm transition-all duration-300 hover:bg-primary/10 hover:scale-105"
+                        >
+                          <div className="w-2 h-2 rounded-full bg-green-500 pulse"></div>
+                          <span>{u.displayName}</span>
+                        </Link>
+                      ))}
                     </div>
                   </CardContent>
                   <CardFooter>
-                    <div className="text-sm text-muted-foreground">42 kullanıcı şu anda çevrimiçi</div>
+                    <div className="text-sm text-muted-foreground">{stats.onlineUsers} kullanıcı şu anda çevrimiçi</div>
                   </CardFooter>
                 </Card>
               </div>

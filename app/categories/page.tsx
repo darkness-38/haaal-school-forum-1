@@ -5,91 +5,22 @@ import { Input } from "@/components/ui/input"
 import { BookOpen, MessageCircle, TrendingUp, Users, Bell, Calendar, Award, Search } from "lucide-react"
 import ForumHeader from "@/components/forum-header"
 import ForumFooter from "@/components/forum-footer"
+import { prisma } from "@/lib/prisma"
 
-export default function CategoriesPage() {
-  // Kategori verileri
-  const categories = [
-    {
-      id: "announcements",
-      name: "Duyurular",
-      description: "Resmi okul duyuruları ve önemli bilgiler",
-      icon: Bell,
-      threadCount: 42,
-      color: "bg-red-100 text-red-600",
-    },
-    {
-      id: "academics",
-      name: "Akademik",
-      description: "Dersler, ödevler ve akademik kaynaklar hakkında tartışmalar",
-      icon: BookOpen,
-      threadCount: 128,
-      color: "bg-blue-100 text-blue-600",
-    },
-    {
-      id: "clubs",
-      name: "Kulüpler & Aktiviteler",
-      description: "Okul kulüpleri, aktiviteleri ve ders dışı etkinlikler hakkında bilgiler",
-      icon: Users,
-      threadCount: 76,
-      color: "bg-green-100 text-green-600",
-    },
-    {
-      id: "events",
-      name: "Etkinlikler",
-      description: "Yaklaşan okul etkinlikleri, spor müsabakaları ve aktiviteler",
-      icon: Calendar,
-      threadCount: 54,
-      color: "bg-purple-100 text-purple-600",
-    },
-    {
-      id: "general",
-      name: "Genel Tartışma",
-      description: "Okul topluluğu için genel konular ve sohbetler",
-      icon: MessageCircle,
-      threadCount: 215,
-      color: "bg-orange-100 text-orange-600",
-    },
-    {
-      id: "resources",
-      name: "Kaynaklar",
-      description: "Ders notları, kitaplar ve diğer eğitim kaynakları",
-      icon: BookOpen,
-      threadCount: 89,
-      color: "bg-teal-100 text-teal-600",
-    },
-    {
-      id: "questions",
-      name: "Soru & Cevap",
-      description: "Akademik ve okul hayatı ile ilgili sorular",
-      icon: MessageCircle,
-      threadCount: 167,
-      color: "bg-yellow-100 text-yellow-600",
-    },
-    {
-      id: "technology",
-      name: "Teknoloji",
-      description: "Teknoloji, bilgisayar ve yazılım ile ilgili konular",
-      icon: TrendingUp,
-      threadCount: 93,
-      color: "bg-indigo-100 text-indigo-600",
-    },
-    {
-      id: "sports",
-      name: "Spor",
-      description: "Okul spor takımları, müsabakalar ve spor etkinlikleri",
-      icon: Users,
-      threadCount: 68,
-      color: "bg-pink-100 text-pink-600",
-    },
-    {
-      id: "arts",
-      name: "Sanat & Kültür",
-      description: "Sanat, müzik, tiyatro ve kültürel etkinlikler",
-      icon: Award,
-      threadCount: 45,
-      color: "bg-cyan-100 text-cyan-600",
-    },
-  ]
+const iconMap: Record<string, any> = {
+  MessageSquare: MessageCircle,
+  BookOpen,
+  Users,
+  Calendar,
+  Bell,
+  TrendingUp,
+  Award,
+}
+
+export default async function CategoriesPage() {
+  const categories = await prisma.category.findMany({
+    orderBy: { threadCount: "desc" },
+  })
 
   return (
     <div className="min-h-screen flex flex-col animated-bg">
@@ -114,13 +45,15 @@ export default function CategoriesPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {categories.map((category) => (
-                <Link href={`/category/${category.id}`} key={category.id}>
+              {categories.map((category) => {
+                const Icon = iconMap[category.icon] ?? MessageCircle
+                return (
+                <Link href={`/category/${category.slug}`} key={category.id}>
                   <Card className="animated-card h-full hover:shadow-md transition-all duration-300 cursor-pointer">
                     <CardHeader className="pb-2">
                       <div className="flex items-center justify-between">
-                        <div className={`p-2 rounded-md ${category.color}`}>
-                          <category.icon className="h-5 w-5" />
+                        <div className="p-2 rounded-md" style={{ backgroundColor: `${category.color}22`, color: category.color }}>
+                          <Icon className="h-5 w-5" />
                         </div>
                         <div className="text-sm text-muted-foreground">{category.threadCount} konu</div>
                       </div>
@@ -140,7 +73,7 @@ export default function CategoriesPage() {
                     </CardFooter>
                   </Card>
                 </Link>
-              ))}
+              )})}
             </div>
           </section>
         </div>

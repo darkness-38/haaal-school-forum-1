@@ -2,8 +2,15 @@ import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { TrendingUp } from "lucide-react"
 
-export default function TrendingTopics() {
-  const trendingTopics = [
+type TrendingTopic = {
+  id: string
+  title: string
+  category: string
+  count: number
+}
+
+export default function TrendingTopics({ topics }: { topics?: TrendingTopic[] }) {
+  const trendingTopics = topics ?? [
     { id: "1", title: "Final Sınav Programı", category: "Duyurular", count: 145 },
     { id: "3", title: "Bilim Fuarı Projeleri", category: "Akademik", count: 98 },
     { id: "5", title: "Yemekhane Menüsü", category: "Genel", count: 76 },
